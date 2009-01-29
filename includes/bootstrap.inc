@@ -61,25 +61,25 @@ define('DRUPAL_BOOTSTRAP_CONFIGURATION', 0);
 define('DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE', 1);
 
 /**
- * Third bootstrap phase: initialize database layer.
+ * Third bootstrap phase: initialize session handling (non-database).
  */
-define('DRUPAL_BOOTSTRAP_DATABASE', 2);
+define('DRUPAL_BOOTSTRAP_SESSION', 2);
 
 /**
- * Fourth bootstrap phase: identify and reject banned hosts.
+ * Fourth bootstrap phase: load bootstrap.inc and module.inc, start
+ * the variable system and try to serve a page from non-database cache.
  */
-define('DRUPAL_BOOTSTRAP_ACCESS', 3);
+define('DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE', 3);
 
 /**
- * Fifth bootstrap phase: initialize session handling.
+ * Fifth bootstrap phase: initialize database layer.
  */
-define('DRUPAL_BOOTSTRAP_SESSION', 4);
+define('DRUPAL_BOOTSTRAP_DATABASE', 4);
 
 /**
- * Sixth bootstrap phase: load bootstrap.inc and module.inc, start
- * the variable system and try to serve a page from the cache.
+ * Sixth bootstrap phase: identify and reject banned hosts.
  */
-define('DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE', 5);
+define('DRUPAL_BOOTSTRAP_ACCESS', 5);
 
 /**
  * Seventh bootstrap phase: find out language of the page.
@@ -463,6 +463,13 @@ function variable_init($conf = array()) {
     $variables = $cached->data;
   }
   else {
+    // We got here without bootstrapping the database as we re-ordered the
+    // bootstrap steps to serve cached pages from a non-database cache.  This
+    // will only happen when the variable array is flushed.  The next two lines
+    // manually boostraps the database.
+    require_once './includes/database.inc';
+    db_set_active();
+
     $result = db_query('SELECT * FROM {variable}');
     while ($variable = db_fetch_object($result)) {
       $variables[$variable->name] = unserialize($variable->value);
@@ -963,7 +970,7 @@ function drupal_anonymous_user($session = '') {
  *     DRUPAL_BOOTSTRAP_FULL: Drupal is fully loaded, validate and fix input data.
  */
 function drupal_bootstrap($phase) {
-  static $phases = array(DRUPAL_BOOTSTRAP_CONFIGURATION, DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE, DRUPAL_BOOTSTRAP_DATABASE, DRUPAL_BOOTSTRAP_ACCESS, DRUPAL_BOOTSTRAP_SESSION, DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE, DRUPAL_BOOTSTRAP_LANGUAGE, DRUPAL_BOOTSTRAP_PATH, DRUPAL_BOOTSTRAP_FULL), $phase_index = 0;
+  static $phases = array(DRUPAL_BOOTSTRAP_CONFIGURATION, DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE, DRUPAL_BOOTSTRAP_SESSION, DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE, DRUPAL_BOOTSTRAP_DATABASE, DRUPAL_BOOTSTRAP_ACCESS, DRUPAL_BOOTSTRAP_LANGUAGE, DRUPAL_BOOTSTRAP_PATH, DRUPAL_BOOTSTRAP_FULL), $phase_index = 0;
 
   while ($phase >= $phase_index && isset($phases[$phase_index])) {
     $current_phase = $phases[$phase_index];
