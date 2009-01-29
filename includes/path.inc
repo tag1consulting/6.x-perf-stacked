@@ -52,7 +52,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
 
   // Use $count to avoid looking up paths in subsequent calls if there simply are no aliases
   if (!isset($count)) {
-    $count = db_result(db_query('SELECT COUNT(pid) FROM {url_alias}'));
+    $count = (int)db_result(db_query('SELECT pid FROM {url_alias} LIMIT 1'));
   }
 
   if ($action == 'wipe') {
