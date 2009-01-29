@@ -45,7 +45,7 @@ function file_create_url($path) {
   }
   switch (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC)) {
     case FILE_DOWNLOADS_PUBLIC:
-      return $GLOBALS['base_url'] .'/'. file_directory_path() .'/'. str_replace('\\', '/', $path);
+      return variable_get('file_base_url', variable_get('cdn_base_url', $GLOBALS['base_url'])) .'/'. file_directory_path() .'/'. str_replace('\\', '/', $path);
     case FILE_DOWNLOADS_PRIVATE:
       return url('system/files/'. $path, array('absolute' => TRUE));
   }
