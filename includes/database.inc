@@ -192,7 +192,7 @@ function db_initialize_layer() {
     }
   }
 
-  $db_type = substr($connect_url, 0, strpos($connect_url, '://'));
+  $db_type = substr($connect_urls['master'], 0, strpos($connect_urls['master'], '://'));
   $handler = "./includes/database.$db_type.inc";
 
   if (is_file($handler)) {
@@ -210,11 +210,8 @@ function db_initialize_layer() {
  * could be called before the database has been boostrapped.
  */
 function db_bootstrapped($set = NULL) {
-  global $db_url, $db_type;
   static $isbootstrapped = FALSE;
-
   db_check_install();
-
   if ($set) {
     $isbootstrapped = $set;
   }
