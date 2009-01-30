@@ -122,20 +122,29 @@ function db_prefix_tables($sql) {
  * @return the name of the previously active database or FALSE if non was found.
  */
 function db_set_active($name = 'default') {
-  global $db_url, $db_type, $active_db;
-  static $db_conns, $active_name = FALSE;
+  global $db_url, $db_slave_url, $db_type, $active_db, $active_slave_db;
+  static $db_conns, $db_slave_conns, $active_name = FALSE;
 
   db_check_install();
 
   if (!isset($db_conns[$name])) {
-    $connect_url = db_include_layer();
-    $db_conns[$name] = db_connect($connect_url);
+    $connect_urls = db_initialize_layer();
+    $db_conns[$name] = db_connect($connect_urls['master']);
+    if (!empty($connect_urls['slave'])) {
+      $db_slave_conns[$name] = db_connect($connect_urls['slave']);
+    }
   }
 
   $previous_name = $active_name;
   // Set the active connection.
   $active_name = $name;
   $active_db = $db_conns[$name];
+  if (isset($db_slave_conns[$name])) {
+    $active_slave_db = $db_slave_conns[$name];
+  }
+  else {
+    unset($active_slave_db);
+  }
 
   // The database has now been updated.
   db_bootstrapped(TRUE);
@@ -155,16 +164,32 @@ function db_check_install() {
 }
 
 /**
- * Include the appropriate db layer, and return the $connect_url.
+ * Include the appropriate db layer, and return the master and slave
+ * $connect_urls.
  */
-function db_include_layer() {
-  global $db_url, $db_type;
+function db_initialize_layer() {
+  global $db_url, $db_slave_url, $db_type;
+  $connect_urls = array();
   // Include the appropriate database handler.
   if (is_array($db_url)) {
-    $connect_url = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
+    $connect_urls['master'] = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
+    if (is_array($db_slave_url[$name])) {
+      $slave_index = mt_rand(0, count($db_slave_url[$name]));
+      $connect_urls['slave'] = $db_slave_url[$name][$slave_index];
+    }
+    else {
+      $connect_urls['slave'] = $db_slave_url[$name];
+    }
   }
   else {
-    $connect_url = $db_url;
+    $connect_urls['master'] = $db_url;
+    if (is_array($db_slave_url)) {
+      $slave_index = mt_rand(0, count($db_slave_url) - 1);
+      $connect_urls['slave'] = $db_slave_url[$slave_index];
+    }
+    else {
+      $connect_urls['slave'] = $db_slave_url;
+    }
   }
 
   $db_type = substr($connect_url, 0, strpos($connect_url, '://'));
@@ -176,7 +201,7 @@ function db_include_layer() {
   else {
     _db_error_page("The database type '". $db_type ."' is unsupported. Please use either 'mysql' or 'mysqli' for MySQL, or 'pgsql' for PostgreSQL databases.");
   }
-  return $connect_url;
+  return $connect_urls;
 }
 
 /**
@@ -194,7 +219,7 @@ function db_bootstrapped($set = NULL) {
     $isbootstrapped = $set;
   }
   if (!$isbootstrapped) {
-    db_include_layer();
+    db_initialize_layer();
   }
   return $isbootstrapped;
 }
@@ -331,6 +356,42 @@ function _db_rewrite_sql($query = '', $primary_table = 'n', $primary_field = 'ni
   $join = empty($join) ? '' : implode(' ', $join);
 
   return array($join, $where, $distinct);
+}
+
+/**
+ * Runs a basic query in the active slave database.
+ *
+ * User-supplied arguments to the query should be passed in as separate
+ * parameters so that they can be properly escaped to avoid SQL injection
+ * attacks.
+ *
+ * @param $query
+ *   A string containing an SQL query.
+ * @param ...
+ *   A variable number of arguments which are substituted into the query
+ *   using printf() syntax. Instead of a variable number of query arguments,
+ *   you may also pass a single array containing the query arguments.
+ *
+ *   Valid %-modifiers are: %s, %d, %f, %b (binary data, do not enclose
+ *   in '') and %%.
+ *
+ *   NOTE: using this syntax will cast NULL and FALSE values to decimal 0,
+ *   and TRUE values to decimal 1.
+ *
+ * @return
+ *   A database query result resource, or FALSE if the query was not
+ *   executed correctly.
+ */
+function db_query_slave($query) {
+  $args = func_get_args();
+  array_shift($args);
+  $query = db_prefix_tables($query);
+  if (isset($args[0]) and is_array($args[0])) { // 'All arguments in one array' syntax
+    $args = $args[0];
+  }
+  _db_query_callback($args, TRUE);
+  $query = preg_replace_callback(DB_QUERY_REGEXP, '_db_query_callback', $query);
+  return _db_query($query, FALSE, TRUE);
 }
 
 /**
