@@ -453,13 +453,6 @@ function variable_init($conf = array()) {
     $variables = $cached->data;
   }
   else {
-    // We got here without bootstrapping the database as we re-ordered the
-    // bootstrap steps to serve cached pages from a non-database cache.  This
-    // will only happen when the variable array is flushed.  The next two lines
-    // manually boostraps the database.
-    require_once './includes/database.inc';
-    db_set_active();
-
     $result = db_query('SELECT * FROM {variable}');
     while ($variable = db_fetch_object($result)) {
       $variables[$variable->name] = unserialize($variable->value);
@@ -997,7 +990,6 @@ function _drupal_bootstrap($phase) {
 
     case DRUPAL_BOOTSTRAP_DATABASE:
       // Initialize the default database.
-      require_once './includes/database.inc';
       db_set_active();
       break;
 
@@ -1011,6 +1003,7 @@ function _drupal_bootstrap($phase) {
       break;
 
     case DRUPAL_BOOTSTRAP_SESSION:
+      require_once './includes/database.inc';
       require_once variable_get('session_inc', './includes/session.inc');
       session_set_save_handler('sess_open', 'sess_close', 'sess_read', 'sess_write', 'sess_destroy_sid', 'sess_gc');
       session_start();
