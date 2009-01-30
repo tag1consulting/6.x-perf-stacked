@@ -157,7 +157,23 @@ function db_set_active($name = 'default') {
   $active_name = $name;
   $active_db = $db_conns[$name];
 
+  // The database has now been updated.
+  db_bootstrapped(TRUE);
+
   return $previous_name;
+}
+
+/**
+ * Track whether or not the database has been bootstrapped.  This is necessary
+ * for the external pagecache which re-orders the bootstrap meaning db_query()
+ * could be called before the database has been boostrapped.
+ */
+function db_bootstrapped($set = NULL) {
+  static $isbootstrapped = FALSE;
+  if ($set) {
+    $isbootstrapped = $set;
+  }
+  return $isbootstrapped;
 }
 
 /**
