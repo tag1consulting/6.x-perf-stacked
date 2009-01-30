@@ -125,47 +125,13 @@ function db_set_active($name = 'default') {
   global $db_url, $db_slave_url, $db_type, $active_db, $active_slave_db;
   static $db_conns, $db_slave_conns, $active_name = FALSE;
 
-  if (empty($db_url)) {
-    include_once 'includes/install.inc';
-    install_goto('install.php');
-  }
+  db_check_install();
 
   if (!isset($db_conns[$name])) {
-    // Initiate a new connection, using the named DB URL specified.
-    if (is_array($db_url)) {
-      $connect_url = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
-      if (is_array($db_slave_url[$name])) {
-        $slave_index = mt_rand(0, count($db_slave_url[$name]));
-        $slave_connect_url = $db_slave_url[$name][$slave_index];
-      }
-      else {
-        $slave_connect_url = $db_slave_url[$name];        
-      }
-    }
-    else {
-      $connect_url = $db_url;
-      if (is_array($db_slave_url)) {
-        $slave_index = mt_rand(0, count($db_slave_url) - 1);
-        $slave_connect_url = $db_slave_url[$slave_index];
-      }
-      else {
-        $slave_connect_url = $db_slave_url;        
-      }
-    }
-
-    $db_type = substr($connect_url, 0, strpos($connect_url, '://'));
-    $handler = "./includes/database.$db_type.inc";
-
-    if (is_file($handler)) {
-      include_once $handler;
-    }
-    else {
-      _db_error_page("The database type '". $db_type ."' is unsupported. Please use either 'mysql' or 'mysqli' for MySQL, or 'pgsql' for PostgreSQL databases.");
-    }
-
-    $db_conns[$name] = db_connect($connect_url);
-    if (!empty($slave_connect_url)) {
-      $db_slave_conns[$name] = db_connect($slave_connect_url); 
+    $connect_urls = db_initialize_layer();
+    $db_conns[$name] = db_connect($connect_urls['master']);
+    if (!empty($connect_urls['slave'])) {
+      $db_slave_conns[$name] = db_connect($connect_urls['slave']);
     }
   }
 
@@ -179,8 +145,80 @@ function db_set_active($name = 'default') {
   else {
     unset($active_slave_db);
   }
-  
+
+  // The database has now been updated.
+  db_bootstrapped(TRUE);
+
   return $previous_name;
+}
+
+/**
+ * Redirect to install if db_url isn't set.
+ */
+function db_check_install() {
+  global $db_url;
+  if (empty($db_url)) {
+    include_once 'includes/install.inc';
+    install_goto('install.php');
+  }
+}
+
+/**
+ * Include the appropriate db layer, and return the master and slave
+ * $connect_urls.
+ */
+function db_initialize_layer() {
+  global $db_url, $db_slave_url, $db_type;
+  $connect_urls = array();
+  // Include the appropriate database handler.
+  if (is_array($db_url)) {
+    $connect_urls['master'] = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
+    if (is_array($db_slave_url[$name])) {
+      $slave_index = mt_rand(0, count($db_slave_url[$name]));
+      $connect_urls['slave'] = $db_slave_url[$name][$slave_index];
+    }
+    else {
+      $connect_urls['slave'] = $db_slave_url[$name];
+    }
+  }
+  else {
+    $connect_urls['master'] = $db_url;
+    if (is_array($db_slave_url)) {
+      $slave_index = mt_rand(0, count($db_slave_url) - 1);
+      $connect_urls['slave'] = $db_slave_url[$slave_index];
+    }
+    else {
+      $connect_urls['slave'] = $db_slave_url;
+    }
+  }
+
+  $db_type = substr($connect_urls['master'], 0, strpos($connect_urls['master'], '://'));
+  $handler = "./includes/database.$db_type.inc";
+
+  if (is_file($handler)) {
+    include_once $handler;
+  }
+  else {
+    _db_error_page("The database type '". $db_type ."' is unsupported. Please use either 'mysql' or 'mysqli' for MySQL, or 'pgsql' for PostgreSQL databases.");
+  }
+  return $connect_urls;
+}
+
+/**
+ * Track whether or not the database has been bootstrapped.  This is necessary
+ * for the external pagecache which re-orders the bootstrap meaning db_query()
+ * could be called before the database has been boostrapped.
+ */
+function db_bootstrapped($set = NULL) {
+  static $isbootstrapped = FALSE;
+  db_check_install();
+  if ($set) {
+    $isbootstrapped = $set;
+  }
+  if (!$isbootstrapped) {
+    db_initialize_layer();
+  }
+  return $isbootstrapped;
 }
 
 /**
