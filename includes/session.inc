@@ -29,6 +29,9 @@ function sess_read($key) {
   }
 
   // Otherwise, if the session is still active, we have a record of the client's session in the database.
+  if (!db_bootstrapped()) {
+    db_set_active();
+  }
   $user = db_fetch_object(db_query("SELECT u.*, s.* FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.sid = '%s'", $key));
 
   // We found the client's session record and they are an authenticated user

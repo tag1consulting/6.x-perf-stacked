@@ -140,6 +140,9 @@ function _db_query($query, $debug = 0) {
  *   of this object are the table fields selected by the query.
  */
 function db_fetch_object($result) {
+  if (!db_bootstrapped()) {
+    db_set_active();
+  }
   if ($result) {
     return mysql_fetch_object($result);
   }
