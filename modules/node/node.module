@@ -695,19 +695,37 @@ function node_invoke_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
  *   A fully-populated node object.
  */
 function node_load($param = array(), $revision = NULL, $reset = NULL) {
+  global $user;
   static $nodes = array();
 
+  $cachable = ($revision == NULL && is_numeric($param)) ? "node/$param" : 0;
   if ($reset) {
     $nodes = array();
+    if (function_exists('dmemcache_set')) {
+      cache_clear_all($cachable, 'cache_node');
+    }
   }
 
-  $cachable = ($revision == NULL);
   $arguments = array();
   if (is_numeric($param)) {
     if ($cachable) {
       // Is the node statically cached?
       if (isset($nodes[$param])) {
         return is_object($nodes[$param]) ? drupal_clone($nodes[$param]) : $nodes[$param];
+      }
+      if (function_exists('dmemcache_set')) {
+        $cache = cache_get($cachable, 'cache_node');
+        if (is_object($cache)) {
+          $cache = $cache->data;
+          // Cache the node statically so we don't have to re-request.
+          $nodes[$param] = is_object($cache) ? drupal_clone($cache) : $cache;
+          // Node types like polls need to do some custom logic when users are
+          // logged in and are more difficult to cache.  We still get benefit
+          // from caching these node types for anonymous users.
+          if (!(in_array($nodes[$param]->type, variable_get('memcache_node_anonymous_types', array('poll'))) && $user->uid)) {
+            return $nodes[$param];
+          }
+        }
       }
     }
     $cond = 'n.nid = %d';
@@ -764,6 +782,16 @@ function node_load($param = array(), $revision = NULL, $reset = NULL) {
       }
     }
     if ($cachable) {
+      if (function_exists('dmemcache_set')) {
+        // To completely exclude a node type from the cache, add it to the
+        // memcache_node_exclude_types variable (as an array).  To exclude a
+        // node type from the cache only for logged in users, add it to the
+        // memcache_node_anyonmous_types variable (as an array).
+        if (!in_array($node->type, variable_get('memcache_node_exclude_types', array())) ||
+           ($user->uid && !in_array($node->type, variable_get('memcache_node_anonymous_types', array('poll'))))) {
+          cache_set($cachable, $node, 'cache_node');
+        }
+      }
       $nodes[$node->nid] = is_object($node) ? drupal_clone($node) : $node;
     }
   }
@@ -923,6 +951,11 @@ function node_save(&$node) {
     $op = 'update';
   }
 
+  // Clear the node cache.
+  if ($node->nid && function_exists('dmemcache_set')) {
+    cache_clear_all("node/$node->nid", 'cache_node');
+  }
+
   // Call the node specific callback (if any).
   node_invoke($node, $op);
   node_invoke_nodeapi($node, $op);
@@ -969,6 +1002,11 @@ function node_delete($nid) {
 
     // Clear the page and block caches.
     cache_clear_all();
+
+    // Clear the node from the node cache
+    if (function_exists('dmemcache_set')) {
+      cache_clear_all("node/$node->nid", 'cache_node');
+    }
 
     // Remove this node from the search index if needed.
     if (function_exists('search_wipe')) {
