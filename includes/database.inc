@@ -125,30 +125,10 @@ function db_set_active($name = 'default') {
   global $db_url, $db_type, $active_db;
   static $db_conns, $active_name = FALSE;
 
-  if (empty($db_url)) {
-    include_once 'includes/install.inc';
-    install_goto('install.php');
-  }
+  db_check_install();
 
   if (!isset($db_conns[$name])) {
-    // Initiate a new connection, using the named DB URL specified.
-    if (is_array($db_url)) {
-      $connect_url = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
-    }
-    else {
-      $connect_url = $db_url;
-    }
-
-    $db_type = substr($connect_url, 0, strpos($connect_url, '://'));
-    $handler = "./includes/database.$db_type.inc";
-
-    if (is_file($handler)) {
-      include_once $handler;
-    }
-    else {
-      _db_error_page("The database type '". $db_type ."' is unsupported. Please use either 'mysql' or 'mysqli' for MySQL, or 'pgsql' for PostgreSQL databases.");
-    }
-
+    $connect_url = db_include_layer();
     $db_conns[$name] = db_connect($connect_url);
   }
 
@@ -157,7 +137,66 @@ function db_set_active($name = 'default') {
   $active_name = $name;
   $active_db = $db_conns[$name];
 
+  // The database has now been updated.
+  db_bootstrapped(TRUE);
+
   return $previous_name;
+}
+
+/**
+ * Redirect to install if db_url isn't set.
+ */
+function db_check_install() {
+  global $db_url;
+  if (empty($db_url)) {
+    include_once 'includes/install.inc';
+    install_goto('install.php');
+  }
+}
+
+/**
+ * Include the appropriate db layer, and return the $connect_url.
+ */
+function db_include_layer() {
+  global $db_url, $db_type;
+  // Include the appropriate database handler.
+  if (is_array($db_url)) {
+    $connect_url = array_key_exists($name, $db_url) ? $db_url[$name] : $db_url['default'];
+  }
+  else {
+    $connect_url = $db_url;
+  }
+
+  $db_type = substr($connect_url, 0, strpos($connect_url, '://'));
+  $handler = "./includes/database.$db_type.inc";
+
+  if (is_file($handler)) {
+    include_once $handler;
+  }
+  else {
+    _db_error_page("The database type '". $db_type ."' is unsupported. Please use either 'mysql' or 'mysqli' for MySQL, or 'pgsql' for PostgreSQL databases.");
+  }
+  return $connect_url;
+}
+
+/**
+ * Track whether or not the database has been bootstrapped.  This is necessary
+ * for the external pagecache which re-orders the bootstrap meaning db_query()
+ * could be called before the database has been boostrapped.
+ */
+function db_bootstrapped($set = NULL) {
+  global $db_url, $db_type;
+  static $isbootstrapped = FALSE;
+
+  db_check_install();
+
+  if ($set) {
+    $isbootstrapped = $set;
+  }
+  if (!$isbootstrapped) {
+    db_include_layer();
+  }
+  return $isbootstrapped;
 }
 
 /**

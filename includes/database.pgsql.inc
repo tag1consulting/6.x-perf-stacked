@@ -114,6 +114,15 @@ function db_connect($url) {
  *   executed correctly.
  */
 function db_query($query) {
+  // Automatically bootstrap the database when necessary.  This is necessary
+  // because we have re-ordered Drupal's bootstrap to allow us to serve pages
+  // from an external pagecache without bootstrapping the database.  This
+  // makes it possible for db_query() to get called before the database is
+  // bootstrapped.
+  if (!db_bootstrapped()) {
+    db_set_active();
+  }
+
   $args = func_get_args();
   array_shift($args);
   $query = db_prefix_tables($query);
@@ -172,6 +181,9 @@ function _db_query($query, $debug = 0) {
  *   of this object are the table fields selected by the query.
  */
 function db_fetch_object($result) {
+  if (!db_bootstrapped()) {
+    db_set_active();
+  }
   if ($result) {
     return pg_fetch_object($result);
   }

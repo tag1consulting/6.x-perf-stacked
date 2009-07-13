@@ -61,25 +61,25 @@ define('DRUPAL_BOOTSTRAP_CONFIGURATION', 0);
 define('DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE', 1);
 
 /**
- * Third bootstrap phase: initialize database layer.
+ * Third bootstrap phase: initialize session handling (non-database).
  */
-define('DRUPAL_BOOTSTRAP_DATABASE', 2);
+define('DRUPAL_BOOTSTRAP_SESSION', 2);
 
 /**
- * Fourth bootstrap phase: identify and reject banned hosts.
+ * Fourth bootstrap phase: load bootstrap.inc and module.inc, start
+ * the variable system and try to serve a page from non-database cache.
  */
-define('DRUPAL_BOOTSTRAP_ACCESS', 3);
+define('DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE', 3);
 
 /**
- * Fifth bootstrap phase: initialize session handling.
+ * Fifth bootstrap phase: initialize database layer.
  */
-define('DRUPAL_BOOTSTRAP_SESSION', 4);
+define('DRUPAL_BOOTSTRAP_DATABASE', 4);
 
 /**
- * Sixth bootstrap phase: load bootstrap.inc and module.inc, start
- * the variable system and try to serve a page from the cache.
+ * Sixth bootstrap phase: identify and reject banned hosts.
  */
-define('DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE', 5);
+define('DRUPAL_BOOTSTRAP_ACCESS', 5);
 
 /**
  * Seventh bootstrap phase: find out language of the page.
@@ -973,7 +973,7 @@ function drupal_anonymous_user($session = '') {
  *     DRUPAL_BOOTSTRAP_FULL: Drupal is fully loaded, validate and fix input data.
  */
 function drupal_bootstrap($phase) {
-  static $phases = array(DRUPAL_BOOTSTRAP_CONFIGURATION, DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE, DRUPAL_BOOTSTRAP_DATABASE, DRUPAL_BOOTSTRAP_ACCESS, DRUPAL_BOOTSTRAP_SESSION, DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE, DRUPAL_BOOTSTRAP_LANGUAGE, DRUPAL_BOOTSTRAP_PATH, DRUPAL_BOOTSTRAP_FULL), $phase_index = 0;
+  static $phases = array(DRUPAL_BOOTSTRAP_CONFIGURATION, DRUPAL_BOOTSTRAP_EARLY_PAGE_CACHE, DRUPAL_BOOTSTRAP_SESSION, DRUPAL_BOOTSTRAP_LATE_PAGE_CACHE, DRUPAL_BOOTSTRAP_DATABASE, DRUPAL_BOOTSTRAP_ACCESS, DRUPAL_BOOTSTRAP_LANGUAGE, DRUPAL_BOOTSTRAP_PATH, DRUPAL_BOOTSTRAP_FULL), $phase_index = 0;
 
   while ($phase >= $phase_index && isset($phases[$phase_index])) {
     $current_phase = $phases[$phase_index];
@@ -1010,7 +1010,6 @@ function _drupal_bootstrap($phase) {
 
     case DRUPAL_BOOTSTRAP_DATABASE:
       // Initialize the default database.
-      require_once './includes/database.inc';
       db_set_active();
       break;
 
@@ -1024,6 +1023,7 @@ function _drupal_bootstrap($phase) {
       break;
 
     case DRUPAL_BOOTSTRAP_SESSION:
+      require_once './includes/database.inc';
       require_once variable_get('session_inc', './includes/session.inc');
       session_set_save_handler('sess_open', 'sess_close', 'sess_read', 'sess_write', 'sess_destroy_sid', 'sess_gc');
       session_start();
