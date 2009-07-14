@@ -150,6 +150,18 @@ function user_load($array = array()) {
     return FALSE;
   }
 
+  // Retrieve user from cache
+  if (sizeof($array) === 1 && isset($array['uid']) && $array['uid']) {
+    $cid = 'user/' . $array['uid'];
+    $cache = cache_get($cid, 'cache_user');
+    if (is_object($cache)) {
+      return $cache->data;
+    }
+  }
+  else {
+    $cid = 0;
+  }
+
   foreach ($array as $key => $value) {
     if ($key == 'uid' || $key == 'status') {
       $query[] = "$key = %d";
@@ -186,6 +198,10 @@ function user_load($array = array()) {
     $user = FALSE;
   }
 
+  if ($user->uid && $cid) {
+    cache_set($cid, $user, 'cache_user');
+  }
+
   return $user;
 }
 
@@ -211,6 +227,7 @@ function user_save($account, $array = array(), $category = 'account') {
   // Dynamically compose a SQL query:
   $user_fields = user_fields();
   if (is_object($account) && $account->uid) {
+    $cid = "user/$account->uid";
     user_module_invoke('update', $array, $account, $category);
     $query = '';
     $data = unserialize(db_result(db_query('SELECT data FROM {users} WHERE uid = %d', $account->uid)));
@@ -275,6 +292,10 @@ function user_save($account, $array = array(), $category = 'account') {
       }
     }
 
+    // Flush user from cache.
+    cache_clear_all($cid, 'cache_user');
+    _user_flush_node_cache($account->uid);
+
     // Refresh user object.
     $user = user_load(array('uid' => $account->uid));
 
@@ -335,6 +356,7 @@ function user_save($account, $array = array(), $category = 'account') {
     $array['uid'] = db_last_insert_id('users', 'uid');
     $user = user_load(array('uid' => $array['uid']));
 
+    $cid = 'user/' . $array['uid'];
     user_module_invoke('insert', $array, $user, $category);
 
     // Build and save the serialized data field now.
@@ -355,6 +377,10 @@ function user_save($account, $array = array(), $category = 'account') {
         }
       }
     }
+
+    // Flush user from cache.
+    cache_clear_all($cid, 'cache_user');
+    _user_flush_node_cache($array['uid']);
 
     // Build the finished user object.
     $user = user_load(array('uid' => $array['uid']));
@@ -1117,6 +1143,13 @@ function user_menu() {
   return $items;
 }
 
+/**
+ * Implementation of hook_flush_caches().
+ */
+function user_flush_caches() {
+  return array('cache_user');
+}
+
 function user_init() {
   drupal_add_css(drupal_get_path('module', 'user') .'/user.css', 'module');
 }
@@ -1371,6 +1404,10 @@ function user_authenticate_finalize(&$edit) {
   $user->login = time();
   db_query("UPDATE {users} SET login = %d WHERE uid = %d", $user->login, $user->uid);
 
+  // Flush user from cache.
+  cache_clear_all("user/$user->uid", 'cache_user');
+  _user_flush_node_cache($user->uid);
+
   // Regenerate the session ID to prevent against session fixation attacks.
   sess_regenerate();
   user_module_invoke('login', $edit, $user);
@@ -1596,6 +1633,9 @@ function user_delete($edit, $uid) {
   db_query('DELETE FROM {users} WHERE uid = %d', $uid);
   db_query('DELETE FROM {users_roles} WHERE uid = %d', $uid);
   db_query('DELETE FROM {authmap} WHERE uid = %d', $uid);
+  // Flush user from cache.
+  cache_clear_all("user/$uid", 'cache_user');
+  _user_flush_node_cache($uid);
   $variables = array('%name' => $account->name, '%email' => '<'. $account->mail .'>');
   watchdog('user', 'Deleted user: %name %email.', $variables, WATCHDOG_NOTICE);
   module_invoke_all('user', 'delete', $edit, $account);
@@ -2254,6 +2294,9 @@ function user_block_user_action(&$object, $context = array()) {
     $uid = $user->uid;
   }
   db_query("UPDATE {users} SET status = 0 WHERE uid = %d", $uid);
+  // Flush user from cache.
+  cache_clear_all("user/$uid", 'cache_user');
+  _user_flush_node_cache($uid);
   sess_destroy_uid($uid);
   watchdog('action', 'Blocked user %name.', array('%name' => check_plain($user->name)));
 }
@@ -2468,4 +2511,17 @@ function _user_forms(&$edit, $account, $category, $hook = 'form') {
   uasort($groups, '_user_sort');
 
   return empty($groups) ? FALSE : $groups;
+}
+
+/**
+ * The node object caches the user object.  Thus, whenever a user is updated,
+ * we have to flush the appropriate node objects.
+ */
+function _user_flush_node_cache($uid) {
+  $result = db_query('SELECT nid FROM {node} WHERE uid = %d', $uid);
+  // Flush all nodes owned by this user, as the node object includes the
+  // user object.
+  while ($node = db_fetch_object($result)) {
+    cache_clear_all('node/'. $node->nid, 'cache_node');
+  }
 }

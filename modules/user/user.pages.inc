@@ -289,6 +289,10 @@ function user_profile_form_submit($form, &$form_state) {
 
   // Clear the page cache because pages can contain usernames and/or profile information:
   cache_clear_all();
+  if (user_access('select different theme')) {
+    // This prevents the system theme from getting corrupted.
+    init_theme();
+  }
 
   drupal_set_message(t('The changes have been saved.'));
   return;
