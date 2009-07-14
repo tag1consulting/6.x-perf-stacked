@@ -137,7 +137,10 @@ function cache_clear_all($cid = NULL, $table = NULL, $wildcard = FALSE) {
     // Clear the block cache first, so stale data will
     // not end up in the page cache.
     cache_clear_all(NULL, 'cache_block');
-    cache_clear_all(NULL, 'cache_page');
+    // Special handling for the page cache.  Rather than flushing this table,
+    // we update a variable.  When pages are in high demand, this allows us to
+    // serve the old cached version while an updated version is being created.
+    variable_set('cache_page_clear', time());
     return;
   }
 

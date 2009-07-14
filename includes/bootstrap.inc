@@ -132,6 +132,12 @@ define('LANGUAGE_NEGOTIATION_PATH', 2);
 define('LANGUAGE_NEGOTIATION_DOMAIN', 3);
 
 /**
+ * The maximum time to allow for a lock to be held when rebuilding a page for
+ * the page cache -- this is to prevent stale locks from aborted sessions.
+ */
+define('CACHE_REBUILD_MAX', 15);
+
+/**
  * Start the timer with the specified name. If you start and stop
  * the same timer multiple times, the measured intervals will be
  * accumulated.
@@ -553,6 +559,17 @@ function page_get_cache($status_only = FALSE) {
 
   if (!$user->uid && $_SERVER['REQUEST_METHOD'] == 'GET' && count(drupal_set_message()) == 0) {
     $cache = cache_get($base_root . request_uri(), 'cache_page');
+
+    // Check if the currently cached page was created before the cache was
+    // last flushed.  If so, try to rebuild it.
+    if (is_object($cache) && $cache->created < variable_get('cache_page_clear', 0)) {
+      $lock = cache_get($base_root . request_uri(), 'cache_lock');
+      if (!$lock) {
+        // Grab the lock and rebuild the web page.
+        cache_set($base_root . request_uri(), time(), 'cache_lock', time() + CACHE_REBUILD_MAX);
+        $cache = NULL;
+      }
+    }
 
     if (empty($cache)) {
       ob_start();

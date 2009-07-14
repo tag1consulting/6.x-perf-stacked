@@ -2606,6 +2606,8 @@ function page_set_cache() {
       ob_end_flush();
       if ($cache && $data) {
         cache_set($base_root . request_uri(), $data, 'cache_page', CACHE_TEMPORARY, drupal_get_headers());
+        // Clear lock that prevented multiple requests rebuilding this page.
+        cache_clear_all($base_root . request_uri(), 'cache_lock');
       }
     }
   }
