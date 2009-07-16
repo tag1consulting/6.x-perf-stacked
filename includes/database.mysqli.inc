@@ -346,7 +346,7 @@ function db_query_temporary($query) {
   }
   _db_query_callback($args, TRUE);
   $query = preg_replace_callback(DB_QUERY_REGEXP, '_db_query_callback', $query);
-  return _db_query($query);
+  return _db_query($query, FALSE, TRUE);
 }
 
 /**
