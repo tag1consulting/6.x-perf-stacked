@@ -127,6 +127,10 @@ function _dblog_get_message_types() {
 }
 
 function dblog_watchdog($log = array()) {
+  if (!function_exists('db_set_active')) {
+    // we got here without bootstrapping the database, using external pagecache
+    include_once './includes/database.inc';
+  }
   $current_db = db_set_active();
   db_query("INSERT INTO {watchdog}
     (uid, type, message, variables, severity, link, location, referer, hostname, timestamp)

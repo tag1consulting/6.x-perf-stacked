@@ -28,6 +28,12 @@ function sess_read($key) {
     return '';
   }
 
+  if (!function_exists('db_set_active')) {
+    // we got here without bootstrapping the database, using external pagecache
+    include_once './includes/database.inc';
+  }
+  $current_db = db_set_active();
+
   // Otherwise, if the session is still active, we have a record of the client's session in the database.
   $user = db_fetch_object(db_query("SELECT u.*, s.* FROM {users} u INNER JOIN {sessions} s ON u.uid = s.uid WHERE s.sid = '%s'", $key));
 

@@ -14,6 +14,12 @@
 function cache_get($cid, $table = 'cache') {
   global $user;
 
+  if (!function_exists('db_set_active')) {
+    // we got here without bootstrapping the database, using external pagecache
+    require_once './includes/database.inc';
+    db_set_active();
+  }
+
   // Garbage collection necessary when enforcing a minimum cache lifetime
   $cache_flush = variable_get('cache_flush', 0);
   if ($cache_flush && ($cache_flush + variable_get('cache_lifetime', 0) <= time())) {
