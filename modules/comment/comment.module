@@ -1930,6 +1930,8 @@ function _comment_get_display_setting($setting, $node) {
 function _comment_update_node_statistics($nid) {
   $count = db_result(db_query('SELECT COUNT(cid) FROM {comments} WHERE nid = %d AND status = %d', $nid, COMMENT_PUBLISHED));
 
+  cache_clear_all("node/$nid", 'cache_node');
+
   // comments exist
   if ($count > 0) {
     $last_reply = db_fetch_object(db_query_range('SELECT cid, name, timestamp, uid FROM {comments} WHERE nid = %d AND status = %d ORDER BY cid DESC', $nid, COMMENT_PUBLISHED, 0, 1));
