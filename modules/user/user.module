@@ -133,12 +133,16 @@ function user_external_login($account, $edit = array()) {
  * @param $array
  *   An associative array of attributes to search for in selecting the
  *   user, such as user name or e-mail address.
+ * @param $reset
+ *   (optional) Resets the static user cache, necessary when the user account
+ *   has been saved.
  *
  * @return
  *   A fully-loaded $user object upon successful user load or FALSE if user
  *   cannot be loaded.
  */
-function user_load($array = array()) {
+function user_load($array = array(), $reset = FALSE) {
+  static $user_cache = array();
   // Dynamically compose a SQL query:
   $query = array();
   $params = array();
@@ -152,9 +156,13 @@ function user_load($array = array()) {
 
   // Retrieve user from cache
   if (sizeof($array) === 1 && isset($array['uid']) && $array['uid']) {
+    if (!$reset && isset($user_cache[$array['uid']])) {
+      return $user_cache[$array['uid']];
+    }
     $cid = 'user/' . $array['uid'];
     $cache = cache_get($cid, 'cache_user');
     if (is_object($cache)) {
+      $user_cache[$array['uid']] = $cache->data;
       return $cache->data;
     }
   }
@@ -199,6 +207,10 @@ function user_load($array = array()) {
   }
 
   if ($user->uid && $cid) {
+    // store it in the static cache
+    $user_cache[$array['uid']] = $user;
+
+    // store it in the cache_user table
     cache_set($cid, $user, 'cache_user');
   }
 
@@ -297,7 +309,7 @@ function user_save($account, $array = array(), $category = 'account') {
     _user_flush_node_cache($account->uid);
 
     // Refresh user object.
-    $user = user_load(array('uid' => $account->uid));
+    $user = user_load(array('uid' => $account->uid), TRUE);
 
     // Send emails after we have the new user object.
     if (isset($array['status']) && $array['status'] != $account->status) {
