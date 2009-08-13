@@ -366,7 +366,7 @@ function user_save($account, $array = array(), $category = 'account') {
 
     // Build the initial user object.
     $array['uid'] = db_last_insert_id('users', 'uid');
-    $user = user_load(array('uid' => $array['uid']));
+    $user = user_load(array('uid' => $array['uid']), TRUE);
 
     $cid = 'user/' . $array['uid'];
     user_module_invoke('insert', $array, $user, $category);
@@ -395,7 +395,7 @@ function user_save($account, $array = array(), $category = 'account') {
     _user_flush_node_cache($array['uid']);
 
     // Build the finished user object.
-    $user = user_load(array('uid' => $array['uid']));
+    $user = user_load(array('uid' => $array['uid']), TRUE);
   }
 
   // Save distributed authentication mappings.
