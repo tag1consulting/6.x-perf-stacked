@@ -1581,7 +1581,7 @@ function drupal_page_footer() {
   if (variable_get('cache', CACHE_DISABLED) != CACHE_DISABLED) {
     page_set_cache();
   }
-
+  drupal_cache_system_paths();
   module_invoke_all('exit');
 }
 

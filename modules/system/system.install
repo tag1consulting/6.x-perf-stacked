@@ -565,6 +565,8 @@ function system_schema() {
   $schema['cache_page']['description'] = 'Cache table used to store compressed pages for anonymous users, if page caching is enabled.';
   $schema['cache_menu'] = $schema['cache'];
   $schema['cache_menu']['description'] = 'Cache table for the menu system to store router information as well as generated link trees for various menu/page/user combinations.';
+  $schema['cache_path'] = $schema['cache'];
+  $schema['cache_path']['description'] = 'Cache table for path alias lookup.';
 
   $schema['files'] = array(
     'description' => 'Stores information for uploaded files.',
@@ -2594,6 +2596,16 @@ function system_update_6051() {
     drupal_set_message("User signatures no longer inherit comment input formats. Each user's signature now has its own associated format that can be selected on the user's account page. Existing signatures have been set to your site's default input format.");
   }
 
+  return $ret;
+}
+ /**
+ * Create the cache_path table.
+ */
+function system_update_6052() {
+  $ret = array();
+  $schema['cache_path'] = drupal_get_schema_unprocessed('system', 'cache');
+  $schema['cache_path']['description'] = t('Cache table used for path alias lookups.');
+  db_create_table($ret, 'cache_path', $schema['cache_path']);
   return $ret;
 }
 
