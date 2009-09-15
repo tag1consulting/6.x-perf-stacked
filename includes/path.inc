@@ -75,7 +75,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       if (!empty($cache['first_call'])) {
         $cache['first_call'] = FALSE;
 
-        if (!is_array($cache['map'][$path_language])) {
+        if (!isset($cache['map'][$path_language]) || !is_array($cache['map'][$path_language])) {
           $cache['map'][$path_language] = array();
         }
         // Load system paths from cache.
