@@ -157,7 +157,7 @@ function drupal_cache_system_paths() {
     // system paths for the page request.
     if ($paths = current($cache['map'])) {
       $data = array_keys($paths);
-      $expire = REQUEST_TIME + (60 * 60 * 24);
+      $expire = $_SERVER['REQUEST_TIME'] + (60 * 60 * 24);
       cache_set($cid, $data, 'cache_path', $expire);
     }
   }
