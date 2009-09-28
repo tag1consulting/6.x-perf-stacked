@@ -720,7 +720,7 @@ function node_load($param = array(), $revision = NULL, $reset = NULL) {
         // logged in and are more difficult to cache.  We still get benefit
         // from caching these node types for anonymous users.
         if (!(in_array($nodes[$param]->type, variable_get('cache_node_anonymous_types', array('poll'))) && $user->uid)) {
-          return $nodes[$param];
+          return drupal_clone($nodes[$param]);
         }
       }
     }
