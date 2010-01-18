@@ -945,15 +945,15 @@ function node_save(&$node) {
     $op = 'update';
   }
 
-  // Clear the node cache.
-  cache_clear_all("node/$node->nid", 'cache_node');
-
   // Call the node specific callback (if any).
   node_invoke($node, $op);
   node_invoke_nodeapi($node, $op);
 
   // Update the node access table for this node.
   node_access_acquire_grants($node);
+
+  // Clear the node cache.
+  cache_clear_all("node/$node->nid", 'cache_node');
 
   // Clear the page and block caches.
   cache_clear_all();
