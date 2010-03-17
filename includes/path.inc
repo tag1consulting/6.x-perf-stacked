@@ -109,7 +109,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       // For system paths which were not cached, query aliases individually.
       else if (!isset($cache['no_aliases'][$path_language][$path])) {
         // Get the most fitting result falling back with alias without language
-        $alias = db_result(db_query("SELECT dst FROM {url_alias} WHERE src = '%s' AND language IN('%s', '') ORDER BY language DESC, pid DESC", $path, $path_language));
+        $alias = db_result(db_query("SELECT dst FROM {url_alias} WHERE src = '%s' AND (language = '%s' OR language = '') ORDER BY language DESC, pid DESC", $path, $path_language));
         $map[$path_language][$path] = $alias;
         return $alias;
       }
@@ -121,7 +121,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       $src = '';
       if (!isset($cache['map'][$path_language]) || !($src = array_search($path, $cache['map'][$path_language]))) {
         // Get the most fitting result falling back with alias without language
-        if ($src = db_result(db_query("SELECT src FROM {url_alias} WHERE dst = '%s' AND language IN('%s', '') ORDER BY language DESC, pid DESC", $path, $path_language))) {
+        if ($src = db_result(db_query("SELECT src FROM {url_alias} WHERE dst = '%s' AND (language = '%s' OR language =  '') ORDER BY language DESC, pid DESC", $path, $path_language))) {
           $map[$path_language][$src] = $path;
         }
         else {
