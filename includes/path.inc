@@ -75,6 +75,8 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       if (!empty($cache['first_call'])) {
         $cache['first_call'] = FALSE;
 
+        // NOTE: This is a kludge to better mimic Drupal 6 behavior.  In
+        // Drupal 7, the per language map is always reset to array() here.
         if (!isset($cache['map'][$path_language]) || !is_array($cache['map'][$path_language])) {
           $cache['map'][$path_language] = array();
         }
@@ -109,7 +111,9 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       // For system paths which were not cached, query aliases individually.
       else if (!isset($cache['no_aliases'][$path_language][$path])) {
         // Get the most fitting result falling back with alias without language
-        $alias = db_result(db_query("SELECT dst FROM {url_alias} WHERE src = '%s' AND (language = '%s' OR language = '') ORDER BY language DESC, pid DESC", $path, $path_language));
+        // NOTE: In Drupal 7 we order by langauge DESC, pid DESC.  For Drupal 6
+        // we remove the second ORDER to better mimic legacy behavior.
+        $alias = db_result(db_query("SELECT dst FROM {url_alias} WHERE src = '%s' AND (language = '%s' OR language = '') ORDER BY language DESC", $path, $path_language));
         $map[$path_language][$path] = $alias;
         return $alias;
       }
@@ -121,7 +125,9 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
       $src = '';
       if (!isset($cache['map'][$path_language]) || !($src = array_search($path, $cache['map'][$path_language]))) {
         // Get the most fitting result falling back with alias without language
-        if ($src = db_result(db_query("SELECT src FROM {url_alias} WHERE dst = '%s' AND (language = '%s' OR language =  '') ORDER BY language DESC, pid DESC", $path, $path_language))) {
+        // NOTE: In Drupal 7 we order by langauge DESC, pid DESC.  For Drupal 6
+        // we remove the second ORDER to better mimic legacy behavior.
+        if ($src = db_result(db_query("SELECT src FROM {url_alias} WHERE dst = '%s' AND (language = '%s' OR language =  '') ORDER BY language DESC", $path, $path_language))) {
           $map[$path_language][$src] = $path;
         }
         else {
