@@ -114,7 +114,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
         // NOTE: In Drupal 7 we order by langauge DESC, pid DESC.  For Drupal 6
         // we remove the second ORDER to better mimic legacy behavior.
         $alias = db_result(db_query("SELECT dst FROM {url_alias} WHERE src = '%s' AND (language = '%s' OR language = '') ORDER BY language DESC", $path, $path_language));
-        $map[$path_language][$path] = $alias;
+        $cache['map'][$path_language][$src] = $path;
         return $alias;
       }
     }
@@ -128,7 +128,7 @@ function drupal_lookup_path($action, $path = '', $path_language = '') {
         // NOTE: In Drupal 7 we order by langauge DESC, pid DESC.  For Drupal 6
         // we remove the second ORDER to better mimic legacy behavior.
         if ($src = db_result(db_query("SELECT src FROM {url_alias} WHERE dst = '%s' AND (language = '%s' OR language =  '') ORDER BY language DESC", $path, $path_language))) {
-          $map[$path_language][$src] = $path;
+          $cache['map'][$path_language][$src] = $path;
         }
         else {
           // We can't record anything into map because we do not have a valid
